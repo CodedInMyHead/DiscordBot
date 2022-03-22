@@ -1,5 +1,5 @@
 # DiscordBot
 My Discord Bot
 
-Does Stuff ;) 
+Does Stuff ;) <br/>
 That's what she said
