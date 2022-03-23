@@ -3,11 +3,14 @@ package com.testBot.bot.configuration;
 import com.testBot.bot.events.EventListener;
 import discord4j.core.*;
 import discord4j.core.event.domain.Event;
+import discord4j.core.event.domain.lifecycle.ReadyEvent;
+import discord4j.core.object.entity.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 
@@ -16,7 +19,7 @@ public class BotConfiguration {
 
     private static final Logger log = LoggerFactory.getLogger( BotConfiguration.class );
 
-    @Value("${token}")
+    //@Value("${token}")
     private String token;
 
     @Bean
@@ -24,7 +27,7 @@ public class BotConfiguration {
         GatewayDiscordClient client = null;
 
         try {
-            client = DiscordClientBuilder.create(token)
+            client = DiscordClientBuilder.create("REMOVE_TO_WORK!!!!!!!!!!!!!!!!!!!!UNTILHEREOTU1ODkyNzk2MTgxNjAyMzU0.YjoSig.lstzPWYT4QIX6NU8uNZ7vtL2GY8")
                     .build()
                     .login()
                     .block();
@@ -35,6 +38,8 @@ public class BotConfiguration {
                         .onErrorResume(listener::handleError)
                         .subscribe();
             }
+
+            client.on(ReadyEvent.class, event -> Mono.fromRunnable(() -> System.out.print("I have arrived")));
         }
         catch ( Exception exception ) {
             log.error( "Be sure to use a valid bot token!", exception );
