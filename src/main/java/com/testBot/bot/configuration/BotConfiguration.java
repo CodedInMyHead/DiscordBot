@@ -19,15 +19,14 @@ public class BotConfiguration {
 
     private static final Logger log = LoggerFactory.getLogger( BotConfiguration.class );
 
-    //@Value("${token}")
-    private String token;
+    public static String token = "";
 
     @Bean
     public <T extends Event> GatewayDiscordClient gatewayDiscordClient(List<EventListener<T>> eventListeners) {
         GatewayDiscordClient client = null;
 
         try {
-            client = DiscordClientBuilder.create("REMOVE_TO_WORK!!!!!!!!!!!!!!!!!!!!UNTILHEREOTU1ODkyNzk2MTgxNjAyMzU0.YjoSig.lstzPWYT4QIX6NU8uNZ7vtL2GY8")
+            client = DiscordClientBuilder.create(token)
                     .build()
                     .login()
                     .block();

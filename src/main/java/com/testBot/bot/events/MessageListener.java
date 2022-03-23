@@ -86,7 +86,12 @@ public abstract class MessageListener {
             mono = Mono.just(eventMessage)
                     .filter(message -> message.getAuthor().map(user -> !user.isBot()).orElse(false))
                     .flatMap(Message::getChannel)
-                    .flatMap(channel -> channel.createMessage("Add more keywords to message event listener"))
+                    .flatMap(channel -> channel.createMessage("Add more keywords to message event listener" + "\n" +
+                            "Make little games (guessing?) based on user input after command" + "\n" +
+                            "add command to tell  random quote from #zitate" + "\n" +
+                            "Add ability to play music from youtube" + "\n" +
+                            "Insert API Token using batch script" + "\n"
+                            ))
                     .then();
         }
 
