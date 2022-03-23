@@ -37,8 +37,6 @@ public class BotConfiguration {
                         .onErrorResume(listener::handleError)
                         .subscribe();
             }
-
-            client.on(ReadyEvent.class, event -> Mono.fromRunnable(() -> System.out.print("I have arrived")));
         }
         catch ( Exception exception ) {
             log.error( "Be sure to use a valid bot token!", exception );
