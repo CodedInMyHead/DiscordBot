@@ -134,7 +134,9 @@ public abstract class MessageListener {
                                         "!plan " + "\n" +
                                         "!purpose " + "\n" +
                                         "!repo " + "\n" +
-                                        "!repo " + "\n"
+                                        "!math " + "\n" +
+                                        "!answer " + "\n" +
+                                        "!math timer "
                         ))
                         .then();
             }
