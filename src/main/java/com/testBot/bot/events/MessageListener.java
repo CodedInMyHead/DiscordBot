@@ -1,89 +1,169 @@
 package com.testBot.bot.events;
 
-import com.testBot.bot.games.MathGame;
+import com.testBot.bot.events.common.UserCommandDecider;
+import com.testBot.bot.events.common.UserCommand;
+import com.testBot.bot.games.MathData;
+import com.testBot.bot.utility.CacheService;
+import discord4j.common.util.Snowflake;
 import discord4j.core.object.entity.Message;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import reactor.core.publisher.Mono;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+@Slf4j
 public abstract class MessageListener {
-    public final static String VERSION = "1.0.0";
-    public Mono<Void> processCommand(Message eventMessage) {
-        Mono<Void> mono = Mono.empty();
 
-        if (eventMessage.getContent().toLowerCase().startsWith("!math start")) {
-            // Explicit calls
+    @Autowired
+    private CacheService cacheService;
 
-            MathGame.numberOne = (int)(Math.random()*28)+ 2;
-            MathGame.numberTwo = (int)(Math.random()*28)+ 2;
-            final int operatorIndex = (int)(Math.random()*8);
-            String operator;
+    @Autowired
+    private UserCommandDecider userCommandDecider;
 
-            switch (operatorIndex) {
-                case 0:
-                case 1:
-                    operator = "+";
-                    break;
-                case 2:
-                case 3:
-                    operator = "-";
-                    break;
-                case 4:
-                case 5:
-                    operator = "*";
-                    break;
-                case 6:
-                case 7:
-                    operator = "%";
-                    break;
-                default:
-                    operator = "error, pls report";
-            }
-            MathGame.operator = operator;
-            MathGame.eventMessage = eventMessage;
-            MathGame.startTimer();
-            return Mono.just(eventMessage)
+    private Mono<Void> mono = Mono.empty();
+
+    public final String VERSION = "1.0.0";
+    private final String THATSWHATSHESAID_MESSAGE = "That's what she said";
+    private final String WHY_MESSAGE = "I was created to rid Micha of boredom at work and show Florian more complex parts of IT";
+    private final String VERSION_MESSAGE = "I, Alita Bot, am Running v" + VERSION;
+    private final String HELP_MESSAGE =
+            "Commands start with a '!'. \n " +
+            "e.g. !why \n " +
+            "The bot also responds to keywords such as OwO/UwU or 'kommt' \n " +
+            "possible commands are: \n" +
+            "!why " + "\n" +
+            "!help " + "\n" +
+            "!version " + "\n" +
+            "!author " + "\n" +
+            "!plan " + "\n" +
+            "!purpose " + "\n" +
+            "!repo " + "\n" +
+            "!math " + "\n" +
+            "!answer " + "\n" +
+            "!math timer ";
+
+
+    private void doAnswer(final Message eventMessage) {
+        if (cacheService.getMathGameData(eventMessage.getChannelId()) == null) {
+            log.info("game needs to be created first in channel " + eventMessage.getChannelId());
+            this.mono = Mono.just(eventMessage)
                     .filter(message -> message.getAuthor().map(user -> !user.isBot()).orElse(false))
                     .flatMap(Message::getChannel)
-                    .flatMap(channel -> channel.createMessage("What is " + MathGame.numberOne + " " + MathGame.operator + " " + MathGame.numberTwo + " ?" + "\nAnswer using !answer <number> (Don't write the <>"))
+                    .flatMap(channel -> channel.createMessage("Your first need to start a game using !math"))
                     .then();
-        } else if (eventMessage.getContent().toLowerCase().startsWith("!answer ")) {
-            if (MathGame.isNotStarted()) {
-                return Mono.just(eventMessage)
-                        .filter(message -> message.getAuthor().map(user -> !user.isBot()).orElse(false))
-                        .flatMap(Message::getChannel)
-                        .flatMap(channel -> channel.createMessage("Your first need to start a game using !math"))
-                        .then();
+            return;
+        }
+        final String messageString = eventMessage.getContent();
+        final String answerString = messageString.substring(8, messageString.length());
+        final int answerInt;
+        try {
+            answerInt = Integer.parseInt(answerString);
+        } catch (final Exception e) {
+            this.mono = Mono.just(eventMessage)
+                    .filter(message -> message.getAuthor().map(user -> !user.isBot()).orElse(false))
+                    .flatMap(Message::getChannel)
+                    .flatMap(channel -> channel.createMessage("That is not an integer!"))
+                    .then();
+            return;
+        }
+        final MathData mathData = cacheService.getMathGameData(eventMessage.getChannelId());
+        if (answerInt == mathData.calculate()) {
+            mathData.reset();
+            this.mono = Mono.just(eventMessage)
+                    .filter(message -> message.getAuthor().map(user -> !user.isBot()).orElse(false))
+                    .flatMap(Message::getChannel)
+                    .flatMap(channel -> channel.createMessage("You're right!!"))
+                    .then();
+        } else {
+            this.mono = Mono.just(eventMessage)
+                    .filter(message -> message.getAuthor().map(user -> !user.isBot()).orElse(false))
+                    .flatMap(Message::getChannel)
+                    .flatMap(channel -> channel.createMessage("Wrong! Think again (and fast)"))
+                    .then();
+        }
+    }
+
+    private void doMathStart(final Message eventMessage) {
+        final int operatorIndex = (int)(Math.random()*8);
+        final String operator;
+
+        switch (operatorIndex) {
+            case 0:
+            case 1:
+                operator = "+";
+                break;
+            case 2:
+            case 3:
+                operator = "-";
+                break;
+            case 4:
+            case 5:
+                operator = "*";
+                break;
+            case 6:
+            case 7:
+                operator = "%";
+                break;
+            default:
+                operator = "error, pls report";
+        }
+        if (cacheService.addMathsGame(eventMessage, (int)(Math.random()*28)+ 2, (int)(Math.random()*28)+ 2, operator, this)) {
+            final MathData mathData = cacheService.getMathGameData(eventMessage.getChannelId());
+            this.mono = Mono.just(eventMessage)
+                    .filter(message -> message.getAuthor().map(user -> !user.isBot()).orElse(false))
+                    .flatMap(Message::getChannel)
+                    .flatMap(channel -> channel.createMessage("What is " + mathData.numberOne + " " + mathData.operator + " " + mathData.numberTwo + " ?" + "\nAnswer using !answer <number> (Don't write the <>)"))
+                    .then();
+        } else {
+            log.info("Already a game running in channel " + eventMessage.getChannelId());
+            this.mono = Mono.just(eventMessage)
+                    .filter(message -> message.getAuthor().map(user -> !user.isBot()).orElse(false))
+                    .flatMap(Message::getChannel)
+                    .flatMap(channel -> channel.createMessage("There is still a MathGame running in this channel!"))
+                    .then();
+        }
+    }
+
+    private void doSay(final Message eventMessage, final String sentence) {
+        this.mono = Mono.just(eventMessage)
+                .filter(message -> message.getAuthor().map(user -> !user.isBot()).orElse(false))
+                .flatMap(Message::getChannel)
+                .flatMap(channel -> channel.createMessage(sentence))
+                .then();
+    }
+
+    public Mono<Void> processCommand(final Message eventMessage) {
+        Map<String, Runnable> commands = new HashMap<>();
+        commands.put("!math start", () -> doMathStart(eventMessage));
+        commands.put("!answer", () -> doAnswer(eventMessage));
+        commands.put("kommt", () -> doSay(eventMessage, THATSWHATSHESAID_MESSAGE));
+        commands.put("owo", () -> doSay(eventMessage, THATSWHATSHESAID_MESSAGE));
+        commands.put("uwu", () -> doSay(eventMessage, THATSWHATSHESAID_MESSAGE));
+        commands.put("!help", () -> doSay(eventMessage, HELP_MESSAGE));
+        commands.put("!why", () -> doSay(eventMessage, WHY_MESSAGE));
+        commands.put("!version", () -> doSay(eventMessage, VERSION_MESSAGE));
+        List<String> commandList = new ArrayList<>();
+        commands.forEach((k,v) -> commandList.add(k));
+        final UserCommand userCommand = userCommandDecider.getCommandTheUserWants(eventMessage.getContent().toLowerCase(), commandList);
+
+        commands.forEach((k,v) -> {
+            if (k.equals(userCommand.toString())) {
+                v.run();
             }
-            final String messageString = eventMessage.getContent();
-            final String answerString = messageString.substring(8, -1);
-            final int answerInt;
-            try {
-                answerInt = Integer.parseInt(answerString);
-            } catch (final Exception e) {
-                return Mono.just(eventMessage)
-                        .filter(message -> message.getAuthor().map(user -> !user.isBot()).orElse(false))
-                        .flatMap(Message::getChannel)
-                        .flatMap(channel -> channel.createMessage("That is not an integer!"))
-                        .then();
-            }
-            if (answerInt == MathGame.calculate()) {
-                MathGame.reset();
-                return Mono.just(eventMessage)
-                        .filter(message -> message.getAuthor().map(user -> !user.isBot()).orElse(false))
-                        .flatMap(Message::getChannel)
-                        .flatMap(channel -> channel.createMessage("You're right!!"))
-                        .then();
-            } else {
-                return Mono.just(eventMessage)
-                        .filter(message -> message.getAuthor().map(user -> !user.isBot()).orElse(false))
-                        .flatMap(Message::getChannel)
-                        .flatMap(channel -> channel.createMessage("Wrong! Think again (and fast)"))
-                        .then();
-            }
-        } else if (eventMessage.getContent().equalsIgnoreCase("!math timer")) {
+        });
+
+        return this.mono;
+        // END HERE
+
+        if (eventMessage.getContent().equalsIgnoreCase("!math timer")) {
             return Mono.just(eventMessage)
                     .filter(message -> message.getAuthor().map(user -> !user.isBot()).orElse(false))
                     .flatMap(Message::getChannel)
-                    .flatMap(channel -> channel.createMessage("The time you have to answer is " + MathGame.timeUntilFailed + " seconds"))
+                    .flatMap(channel -> channel.createMessage("The time you have to answer is " + MathData.timeUntilFailed + " seconds"))
                     .then();
         }
         else if (eventMessage.getContent().toLowerCase().startsWith("!math timer ")) {
@@ -99,66 +179,16 @@ public abstract class MessageListener {
                         .flatMap(channel -> channel.createMessage("Not a number!\nTimeout reset to default (30) \ne.g. !math timer 30"))
                         .then();
             }
-            MathGame.timeUntilFailed = newTimeout;
+            MathData.timeUntilFailed = newTimeout;
 
             return Mono.just(eventMessage)
                     .filter(message -> message.getAuthor().map(user -> !user.isBot()).orElse(false))
                     .flatMap(Message::getChannel)
-                    .flatMap(channel -> channel.createMessage("Set the timeout to "+MathGame.timeUntilFailed))
+                    .flatMap(channel -> channel.createMessage("Set the timeout to "+ MathData.timeUntilFailed))
                     .then();
         }
         else {
             // Implicit calls
-
-            if (eventMessage.getContent().toLowerCase().contains("kommt") ||
-                    eventMessage.getContent().toLowerCase().contains("owo") ||
-                    eventMessage.getContent().toLowerCase().contains("uwu")) {
-
-                mono = Mono.just(eventMessage)
-                        .filter(message -> message.getAuthor().map(user -> !user.isBot()).orElse(false))
-                        .flatMap(Message::getChannel)
-                        .flatMap(channel -> channel.createMessage("That's what she said"))
-                        .then();
-            }
-
-            if (eventMessage.getContent().toLowerCase().contains("!help")) {
-                mono = Mono.just(eventMessage)
-                        .filter(message -> message.getAuthor().map(user -> !user.isBot()).orElse(false))
-                        .flatMap(Message::getChannel)
-                        .flatMap(channel -> channel.createMessage(
-                                "Commands start with a '!'. \n e.g. !why \n The bot also responds to keywords such as OwO/UwU or 'kommt' \n possible commands are: \n" +
-                                        "!why " + "\n" +
-                                        "!help " + "\n" +
-                                        "!version " + "\n" +
-                                        "!author " + "\n" +
-                                        "!plan " + "\n" +
-                                        "!purpose " + "\n" +
-                                        "!repo " + "\n" +
-                                        "!math " + "\n" +
-                                        "!answer " + "\n" +
-                                        "!math timer "
-                        ))
-                        .then();
-            }
-
-            if (eventMessage.getContent().toLowerCase().contains("!why")) {
-
-                mono = Mono.just(eventMessage)
-                        .filter(message -> message.getAuthor().map(user -> !user.isBot()).orElse(false))
-                        .flatMap(Message::getChannel)
-                        .flatMap(channel -> channel.createMessage("I was created to rid Micha of boredom at work and show Florian more complex parts of IT"))
-                        .then();
-            }
-
-            if (eventMessage.getContent().toLowerCase().contains("!version")) {
-
-                mono = Mono.just(eventMessage)
-                        .filter(message -> message.getAuthor().map(user -> !user.isBot()).orElse(false))
-                        .flatMap(Message::getChannel)
-                        .flatMap(channel -> channel.createMessage("I, Alita Bot, am Running v" + VERSION))
-                        .then();
-            }
-
             if (eventMessage.getContent().toLowerCase().contains("!author")) {
 
                 mono = Mono.just(eventMessage)
@@ -200,8 +230,10 @@ public abstract class MessageListener {
                         .then();
             }
         }
-
-
         return mono;
+    }
+
+    public void deleteMathGame(final Snowflake snowflake) {
+        cacheService.deleteMathGame(snowflake);
     }
 }
