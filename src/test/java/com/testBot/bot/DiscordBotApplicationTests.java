@@ -10,4 +10,9 @@ class DiscordBotApplicationTests {
 	void contextLoads() {
 	}
 
+	@Test
+	void doNothing() {
+		
+	}
+
 }
